@@ -12,6 +12,7 @@ import (
 type BlockMeta struct {
 	BlockID   BlockID `json:"block_id"`
 	BlockSize int     `json:"block_size"`
+	BlockPartsTotal uint32 `json:"block_parts_total"`
 	Header    Header  `json:"header"`
 	NumTxs    int     `json:"num_txs"`
 }
@@ -19,7 +20,7 @@ type BlockMeta struct {
 // NewBlockMeta returns a new BlockMeta.
 func NewBlockMeta(block *Block, blockParts *PartSet) *BlockMeta {
 	return &BlockMeta{
-		BlockID:   BlockID{block.Hash(), blockParts.Header()},
+		BlockID:   BlockID{block.Hash()},
 		BlockSize: block.Size(),
 		Header:    block.Header,
 		NumTxs:    len(block.Data.Txs),

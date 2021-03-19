@@ -1017,8 +1017,8 @@ func (ps *PeerState) SetHasProposal(proposal *types.Proposal) {
 		return
 	}
 
-	ps.PRS.ProposalBlockPartSetHeader = proposal.BlockID.PartSetHeader
-	ps.PRS.ProposalBlockParts = bits.NewBitArray(int(proposal.BlockID.PartSetHeader.Total))
+	// ps.PRS.ProposalBlockPartSetHeader = proposal.BlockID.PartSetHeader
+	// ps.PRS.ProposalBlockParts = bits.NewBitArray(int(proposal.BlockID.PartSetHeader.Total))
 	ps.PRS.ProposalPOLRound = proposal.POLRound
 	ps.PRS.ProposalPOL = nil // Nil until ProposalPOLMessage received.
 }
@@ -1606,6 +1606,34 @@ func (m *BlockPartMessage) ValidateBasic() error {
 // String returns a string representation.
 func (m *BlockPartMessage) String() string {
 	return fmt.Sprintf("[BlockPart H:%v R:%v P:%v]", m.Height, m.Round, m.Part)
+}
+
+//-------------------------------------
+
+// BlockPartMessage is sent when gossipping a piece of the proposed block.
+type BlockMessage struct {
+	Height int64
+	Round  int32
+	Block   *types.Block
+}
+
+// ValidateBasic performs basic validation.
+func (m *BlockMessage) ValidateBasic() error {
+	if m.Height < 0 {
+		return errors.New("negative Height")
+	}
+	if m.Round < 0 {
+		return errors.New("negative Round")
+	}
+	if err := m.Block.ValidateBasic(); err != nil {
+		return fmt.Errorf("wrong Part: %v", err)
+	}
+	return nil
+}
+
+// String returns a string representation.
+func (m *BlockMessage) String() string {
+	return fmt.Sprintf("[BlockPart H:%v R:%v P:%v]", m.Height, m.Round, m.Block)
 }
 
 //-------------------------------------

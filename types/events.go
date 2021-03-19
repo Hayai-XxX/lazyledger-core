@@ -26,6 +26,7 @@ const (
 	// These are used for testing the consensus state machine.
 	// They can also be used to build real-time consensus visualizers.
 	EventCompleteProposal = "CompleteProposal"
+	EventCompleteDAProposal = "CompleteDAProposal"
 	EventLock             = "Lock"
 	EventNewRound         = "NewRound"
 	EventNewRoundStep     = "NewRoundStep"
@@ -53,6 +54,7 @@ func init() {
 	tmjson.RegisterType(EventDataRoundState{}, "tendermint/event/RoundState")
 	tmjson.RegisterType(EventDataNewRound{}, "tendermint/event/NewRound")
 	tmjson.RegisterType(EventDataCompleteProposal{}, "tendermint/event/CompleteProposal")
+	tmjson.RegisterType(EventDataCompleteDAProposal{}, "tendermint/event/CompleteDAProposal")
 	tmjson.RegisterType(EventDataVote{}, "tendermint/event/Vote")
 	tmjson.RegisterType(EventDataValidatorSetUpdates{}, "tendermint/event/ValidatorSetUpdates")
 	tmjson.RegisterType(EventDataString(""), "tendermint/event/ProposalString")
@@ -115,6 +117,14 @@ type EventDataCompleteProposal struct {
 	BlockID BlockID `json:"block_id"`
 }
 
+type EventDataCompleteDAProposal struct {
+	Height int64  `json:"height"`
+	Round  int32  `json:"round"`
+	Step   string `json:"step"`
+
+	DAHeader DataAvailabilityHeader `json:"da_header"`
+}
+
 type EventDataVote struct {
 	Vote *Vote
 }
@@ -140,6 +150,7 @@ const (
 
 var (
 	EventQueryCompleteProposal    = QueryForEvent(EventCompleteProposal)
+	EventQueryCompleteDAProposal  = QueryForEvent(EventCompleteDAProposal)
 	EventQueryLock                = QueryForEvent(EventLock)
 	EventQueryNewBlock            = QueryForEvent(EventNewBlock)
 	EventQueryNewBlockHeader      = QueryForEvent(EventNewBlockHeader)

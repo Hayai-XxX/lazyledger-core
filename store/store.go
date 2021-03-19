@@ -98,7 +98,7 @@ func (bs *BlockStore) LoadBlock(height int64) *types.Block {
 
 	pbb := new(tmproto.Block)
 	buf := []byte{}
-	for i := 0; i < int(blockMeta.BlockID.PartSetHeader.Total); i++ {
+	for i := 0; i < int(blockMeta.BlockPartsTotal); i++ {
 		part := bs.LoadBlockPart(height, i)
 		// If the part is missing (e.g. since it has been deleted after we
 		// loaded the block meta) we consider the whole block to be missing.
@@ -297,7 +297,7 @@ func (bs *BlockStore) PruneBlocks(height int64) (uint64, error) {
 		if err := batch.Delete(calcSeenCommitKey(h)); err != nil {
 			return 0, err
 		}
-		for p := 0; p < int(meta.BlockID.PartSetHeader.Total); p++ {
+		for p := 0; p < int(meta.BlockPartsTotal); p++ {
 			if err := batch.Delete(calcBlockPartKey(h, p)); err != nil {
 				return 0, err
 			}

@@ -75,17 +75,17 @@ type RoundState struct {
 	Validators         *types.ValidatorSet `json:"validators"`
 	Proposal           *types.Proposal     `json:"proposal"`
 	ProposalBlock      *types.Block        `json:"proposal_block"`
-	ProposalBlockParts *types.PartSet      `json:"proposal_block_parts"`
+	ProposalBlockID    types.BlockID       `json:"proposal_block_id"`
 	LockedRound        int32               `json:"locked_round"`
 	LockedBlock        *types.Block        `json:"locked_block"`
-	LockedBlockParts   *types.PartSet      `json:"locked_block_parts"`
+	LockedBlockID      types.BlockID       `json:"locked_block_id"`
 
 	// Last known round with POL for non-nil valid block.
 	ValidRound int32        `json:"valid_round"`
 	ValidBlock *types.Block `json:"valid_block"` // Last known block of POL mentioned above.
 
-	// Last known block parts of POL mentioned above.
-	ValidBlockParts           *types.PartSet      `json:"valid_block_parts"`
+	// Last known block ID of POL mentioned above.
+	ValidBlockID              types.BlockID       `json:"valid_block_id"`
 	Votes                     *HeightVoteSet      `json:"votes"`
 	CommitRound               int32               `json:"commit_round"` //
 	LastCommit                *types.VoteSet      `json:"last_commit"`  // Last precommits at Height-1
@@ -150,7 +150,6 @@ func (rs *RoundState) CompleteProposalEvent() types.EventDataCompleteProposal {
 	// cs.Proposal is not guaranteed to be set when this function is called
 	blockID := types.BlockID{
 		Hash:          rs.ProposalBlock.Hash(),
-		PartSetHeader: rs.ProposalBlockParts.Header(),
 	}
 
 	return types.EventDataCompleteProposal{
@@ -160,6 +159,17 @@ func (rs *RoundState) CompleteProposalEvent() types.EventDataCompleteProposal {
 		BlockID: blockID,
 	}
 }
+
+// CompleteDAProposalEvent returns information about a proposed block as an event.
+func (rs *RoundState) CompleteDAProposalEvent() types.EventDataCompleteDAProposal {
+	return types.EventDataCompleteDAProposal{
+		Height:  rs.Height,
+		Round:   rs.Round,
+		Step:    rs.Step.String(),
+		DAHeader: rs.ProposalBlock.DataAvailabilityHeader,
+	}
+}
+
 
 // RoundStateEvent returns the H/R/S of the RoundState as an event.
 func (rs *RoundState) RoundStateEvent() types.EventDataRoundState {
@@ -197,11 +207,11 @@ func (rs *RoundState) StringIndented(indent string) string {
 		indent, rs.CommitTime,
 		indent, rs.Validators.StringIndented(indent+"  "),
 		indent, rs.Proposal,
-		indent, rs.ProposalBlockParts.StringShort(), rs.ProposalBlock.StringShort(),
+		indent, rs.ProposalBlockID.String(), rs.ProposalBlock.StringShort(),
 		indent, rs.LockedRound,
-		indent, rs.LockedBlockParts.StringShort(), rs.LockedBlock.StringShort(),
+		indent, rs.LockedBlockID.String(), rs.LockedBlock.StringShort(),
 		indent, rs.ValidRound,
-		indent, rs.ValidBlockParts.StringShort(), rs.ValidBlock.StringShort(),
+		indent, rs.ValidBlockID.String(), rs.ValidBlock.StringShort(),
 		indent, rs.Votes.StringIndented(indent+"  "),
 		indent, rs.LastCommit.StringShort(),
 		indent, rs.LastValidators.StringIndented(indent+"  "),

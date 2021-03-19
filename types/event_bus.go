@@ -207,6 +207,10 @@ func (b *EventBus) PublishEventCompleteProposal(data EventDataCompleteProposal) 
 	return b.Publish(EventCompleteProposal, data)
 }
 
+func (b *EventBus) PublishEventCompleteDAProposal(data EventDataCompleteDAProposal) error {
+	return b.Publish(EventCompleteDAProposal, data)
+}
+
 func (b *EventBus) PublishEventPolka(data EventDataRoundState) error {
 	return b.Publish(EventPolka, data)
 }

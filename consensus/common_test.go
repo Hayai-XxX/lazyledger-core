@@ -52,7 +52,7 @@ type cleanupFunc func()
 var (
 	config                *cfg.Config // NOTE: must be reset for each _test.go file
 	consensusReplayConfig *cfg.Config
-	ensureTimeout         = time.Millisecond * 200
+	ensureTimeout         = time.Millisecond * 20000000
 )
 
 func ensureDir(dir string, mode os.FileMode) {
@@ -86,11 +86,7 @@ func newValidatorStub(privValidator types.PrivValidator, valIndex int32) *valida
 	}
 }
 
-func (vs *validatorStub) signVote(
-	voteType tmproto.SignedMsgType,
-	hash []byte,
-	header types.PartSetHeader) (*types.Vote, error) {
-
+func (vs *validatorStub) signVote(voteType tmproto.SignedMsgType, hash []byte) (*types.Vote, error) {
 	pubKey, err := vs.PrivValidator.GetPubKey()
 	if err != nil {
 		return nil, fmt.Errorf("can't get pubkey: %w", err)
@@ -103,7 +99,7 @@ func (vs *validatorStub) signVote(
 		Round:            vs.Round,
 		Timestamp:        tmtime.Now(),
 		Type:             voteType,
-		BlockID:          types.BlockID{Hash: hash, PartSetHeader: header},
+		BlockID:          types.BlockID{Hash: hash},
 	}
 	v := vote.ToProto()
 	err = vs.PrivValidator.SignVote(config.ChainID(), v)
@@ -113,8 +109,8 @@ func (vs *validatorStub) signVote(
 }
 
 // Sign vote for type/hash/header
-func signVote(vs *validatorStub, voteType tmproto.SignedMsgType, hash []byte, header types.PartSetHeader) *types.Vote {
-	v, err := vs.signVote(voteType, hash, header)
+func signVote(vs *validatorStub, voteType tmproto.SignedMsgType, hash []byte) *types.Vote {
+	v, err := vs.signVote(voteType, hash)
 	if err != nil {
 		panic(fmt.Errorf("failed to sign vote: %v", err))
 	}
@@ -124,11 +120,10 @@ func signVote(vs *validatorStub, voteType tmproto.SignedMsgType, hash []byte, he
 func signVotes(
 	voteType tmproto.SignedMsgType,
 	hash []byte,
-	header types.PartSetHeader,
 	vss ...*validatorStub) []*types.Vote {
 	votes := make([]*types.Vote, len(vss))
 	for i, vs := range vss {
-		votes[i] = signVote(vs, voteType, hash, header)
+		votes[i] = signVote(vs, voteType, hash)
 	}
 	return votes
 }
@@ -191,7 +186,7 @@ func decideProposal(
 	round int32,
 ) (proposal *types.Proposal, block *types.Block) {
 	cs1.mtx.Lock()
-	block, blockParts := cs1.createProposalBlock()
+	block = cs1.createProposalBlock()
 	validRound := cs1.ValidRound
 	chainID := cs1.state.ChainID
 	cs1.mtx.Unlock()
@@ -200,8 +195,7 @@ func decideProposal(
 	}
 
 	// Make proposal
-	polRound, propBlockID := validRound, types.BlockID{Hash: block.Hash(), PartSetHeader: blockParts.Header()}
-	proposal = types.NewProposal(height, round, polRound, propBlockID)
+	proposal = types.NewProposal(height, round, validRound, block.DataAvailabilityHeader)
 	p := proposal.ToProto()
 	if err := vs.SignProposal(chainID, p); err != nil {
 		panic(err)
@@ -222,10 +216,9 @@ func signAddVotes(
 	to *State,
 	voteType tmproto.SignedMsgType,
 	hash []byte,
-	header types.PartSetHeader,
 	vss ...*validatorStub,
 ) {
-	votes := signVotes(voteType, hash, header, vss...)
+	votes := signVotes(voteType, hash, vss...)
 	addVotes(to, votes...)
 }
 
@@ -587,6 +580,28 @@ func ensureNewBlockHeader(blockCh <-chan tmpubsub.Message, height int64, blockHa
 func ensureNewUnlock(unlockCh <-chan tmpubsub.Message, height int64, round int32) {
 	ensureNewEvent(unlockCh, height, round, ensureTimeout,
 		"Timeout expired while waiting for NewUnlock event")
+}
+
+func ensureDAProposal(proposalCh <-chan tmpubsub.Message, height int64, round int32, dah types.DataAvailabilityHeader) {
+	select {
+	case <-time.After(ensureTimeout):
+		panic("Timeout expired while waiting for NewProposal event")
+	case msg := <-proposalCh:
+		proposalEvent, ok := msg.Data().(types.EventDataCompleteDAProposal)
+		if !ok {
+			panic(fmt.Sprintf("expected a EventDataCompleteDAProposal, got %T. Wrong subscription channel?",
+				msg.Data()))
+		}
+		if proposalEvent.Height != height {
+			panic(fmt.Sprintf("expected height %v, got %v", height, proposalEvent.Height))
+		}
+		if proposalEvent.Round != round {
+			panic(fmt.Sprintf("expected round %v, got %v", round, proposalEvent.Round))
+		}
+		if !proposalEvent.DAHeader.Equal(&dah) {
+			panic(fmt.Sprintf("Proposed block does not match expected proposal (%v != %v)", proposalEvent.DAHeader, dah))
+		}
+	}
 }
 
 func ensureProposal(proposalCh <-chan tmpubsub.Message, height int64, round int32, propID types.BlockID) {

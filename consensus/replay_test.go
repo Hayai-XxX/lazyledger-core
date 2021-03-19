@@ -333,8 +333,6 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	sim.GenesisState, _ = sm.MakeGenesisState(genDoc)
 	sim.CleanupFunc = cleanup
 
-	partSize := types.BlockPartSizeBytes
-
 	newRoundCh := subscribe(css[0].eventBus, types.EventQueryNewRound)
 	proposalCh := subscribe(css[0].eventBus, types.EventQueryCompleteProposal)
 
@@ -363,11 +361,9 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	newValidatorTx1 := kvstore.MakeValSetChangeTx(valPubKey1ABCI, testMinPower)
 	err = assertMempool(css[0].txNotifier).CheckTx(newValidatorTx1, nil, mempl.TxInfo{})
 	assert.Nil(t, err)
-	propBlock, _ := css[0].createProposalBlock() // changeProposer(t, cs1, vs2)
-	propBlockParts := propBlock.MakePartSet(partSize)
-	blockID := types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
+	propBlock := css[0].createProposalBlock() // changeProposer(t, cs1, vs2)
 
-	proposal := types.NewProposal(vss[1].Height, round, -1, blockID)
+	proposal := types.NewProposal(vss[1].Height, round, -1, propBlock.DataAvailabilityHeader)
 	p := proposal.ToProto()
 	if err := vss[1].SignProposal(config.ChainID(), p); err != nil {
 		t.Fatal("failed to sign bad proposal", err)
@@ -375,7 +371,7 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	proposal.Signature = p.Signature
 
 	// set the proposal block
-	if err := css[0].SetProposalAndBlock(proposal, propBlock, propBlockParts, "some peer"); err != nil {
+	if err := css[0].SetProposalAndBlock(proposal, propBlock, "some peer"); err != nil {
 		t.Fatal(err)
 	}
 	ensureNewProposal(proposalCh, height, round)
@@ -393,11 +389,9 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	updateValidatorTx1 := kvstore.MakeValSetChangeTx(updatePubKey1ABCI, 25)
 	err = assertMempool(css[0].txNotifier).CheckTx(updateValidatorTx1, nil, mempl.TxInfo{})
 	assert.Nil(t, err)
-	propBlock, _ = css[0].createProposalBlock() // changeProposer(t, cs1, vs2)
-	propBlockParts = propBlock.MakePartSet(partSize)
-	blockID = types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
+	propBlock  = css[0].createProposalBlock() // changeProposer(t, cs1, vs2)
 
-	proposal = types.NewProposal(vss[2].Height, round, -1, blockID)
+	proposal = types.NewProposal(vss[2].Height, round, -1, propBlock.DataAvailabilityHeader)
 	p = proposal.ToProto()
 	if err := vss[2].SignProposal(config.ChainID(), p); err != nil {
 		t.Fatal("failed to sign bad proposal", err)
@@ -405,7 +399,7 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	proposal.Signature = p.Signature
 
 	// set the proposal block
-	if err := css[0].SetProposalAndBlock(proposal, propBlock, propBlockParts, "some peer"); err != nil {
+	if err := css[0].SetProposalAndBlock(proposal, propBlock, "some peer"); err != nil {
 		t.Fatal(err)
 	}
 	ensureNewProposal(proposalCh, height, round)
@@ -430,9 +424,8 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	newValidatorTx3 := kvstore.MakeValSetChangeTx(newVal3ABCI, testMinPower)
 	err = assertMempool(css[0].txNotifier).CheckTx(newValidatorTx3, nil, mempl.TxInfo{})
 	assert.Nil(t, err)
-	propBlock, _ = css[0].createProposalBlock() // changeProposer(t, cs1, vs2)
-	propBlockParts = propBlock.MakePartSet(partSize)
-	blockID = types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
+	propBlock = css[0].createProposalBlock() // changeProposer(t, cs1, vs2)
+
 	newVss := make([]*validatorStub, nVals+1)
 	copy(newVss, vss[:nVals+1])
 	sort.Sort(ValidatorStubsByPower(newVss))
@@ -454,7 +447,7 @@ func TestSimulateValidatorsChange(t *testing.T) {
 
 	selfIndex := valIndexFn(0)
 
-	proposal = types.NewProposal(vss[3].Height, round, -1, blockID)
+	proposal = types.NewProposal(vss[3].Height, round, -1, types.DataAvailabilityHeader{})
 	p = proposal.ToProto()
 	if err := vss[3].SignProposal(config.ChainID(), p); err != nil {
 		t.Fatal("failed to sign bad proposal", err)
@@ -462,7 +455,7 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	proposal.Signature = p.Signature
 
 	// set the proposal block
-	if err := css[0].SetProposalAndBlock(proposal, propBlock, propBlockParts, "some peer"); err != nil {
+	if err := css[0].SetProposalAndBlock(proposal, propBlock, "some peer"); err != nil {
 		t.Fatal(err)
 	}
 	ensureNewProposal(proposalCh, height, round)
@@ -505,15 +498,14 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	removeValidatorTx3 := kvstore.MakeValSetChangeTx(newVal3ABCI, 0)
 	err = assertMempool(css[0].txNotifier).CheckTx(removeValidatorTx3, nil, mempl.TxInfo{})
 	assert.Nil(t, err)
-	propBlock, _ = css[0].createProposalBlock() // changeProposer(t, cs1, vs2)
-	propBlockParts = propBlock.MakePartSet(partSize)
-	blockID = types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
+	propBlock = css[0].createProposalBlock() // changeProposer(t, cs1, vs2)
+
 	newVss = make([]*validatorStub, nVals+3)
 	copy(newVss, vss[:nVals+3])
 	sort.Sort(ValidatorStubsByPower(newVss))
 
 	selfIndex = valIndexFn(0)
-	proposal = types.NewProposal(vss[1].Height, round, -1, blockID)
+	proposal = types.NewProposal(vss[1].Height, round, -1, types.DataAvailabilityHeader{})
 	p = proposal.ToProto()
 	if err := vss[1].SignProposal(config.ChainID(), p); err != nil {
 		t.Fatal("failed to sign bad proposal", err)
@@ -521,7 +513,7 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	proposal.Signature = p.Signature
 
 	// set the proposal block
-	if err := css[0].SetProposalAndBlock(proposal, propBlock, propBlockParts, "some peer"); err != nil {
+	if err := css[0].SetProposalAndBlock(proposal, propBlock, "some peer"); err != nil {
 		t.Fatal(err)
 	}
 	ensureNewProposal(proposalCh, height, round)
@@ -1138,7 +1130,7 @@ func readPieceFromWAL(msg *TimedWALMessage) interface{} {
 	case msgInfo:
 		switch msg := m.Msg.(type) {
 		case *ProposalMessage:
-			return &msg.Proposal.BlockID.PartSetHeader
+			return &msg.Proposal.DAHeader
 		case *BlockPartMessage:
 			return msg.Part
 		case *VoteMessage:
